@@ -49,7 +49,7 @@ map_SA_wards.crs = {'init': u'epsg:27700'}
 df = df_cd4.merge(df_loc, on = 'StudyID', how = 'left')#, lsuffix='_left', rsuffix='_right')
 df = df.dropna()
 columns = ['support', 'CD4Results'] #'total_health', 'NGT_HSPT'
-columns2 = ['total_health', 'NGT_HSPT', 'support', 'CD4Results', 'total_barrier', 'HOWFAR']
+#columns2 = ['total_health', 'NGT_HSPT', 'support', 'CD4Results', 'total_barrier', 'HOWFAR']
 #columns3 = ['total_health', 'NGT_HSPT', 'support', 'CD4Results', 'HOWFAR']
 #columns4 = ['CD4Results', 'HOWFAR', 'total_barrier', 'EMNERVOU']
 # normalizing values to for creating a common heatmap
