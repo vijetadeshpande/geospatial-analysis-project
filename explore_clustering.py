@@ -22,6 +22,8 @@ import GeoSpatialClustering as GSC
 from kmodes.kprototypes import KPrototypes as KPro
 import scipy as sp
 
+#%% data cleaning
+
 #if False:
 # import file
 path = r'C:\Users\Vijeta\Documents\Projects\Sizanani\Data'
@@ -49,9 +51,9 @@ map_SA_wards.crs = {'init': u'epsg:27700'}
 df = df_cd4.merge(df_loc, on = 'StudyID', how = 'left')#, lsuffix='_left', rsuffix='_right')
 df = df.dropna()
 columns = ['support', 'CD4Results'] #'total_health', 'NGT_HSPT'
-#columns2 = ['total_health', 'NGT_HSPT', 'support', 'CD4Results', 'total_barrier', 'HOWFAR']
-#columns3 = ['total_health', 'NGT_HSPT', 'support', 'CD4Results', 'HOWFAR']
-#columns4 = ['CD4Results', 'HOWFAR', 'total_barrier', 'EMNERVOU']
+columns2 = ['total_health', 'NGT_HSPT', 'support', 'CD4Results', 'total_barrier', 'HOWFAR']
+columns3 = ['total_health', 'NGT_HSPT', 'support', 'CD4Results', 'HOWFAR']
+columns4 = ['CD4Results', 'HOWFAR', 'total_barrier', 'EMNERVOU']
 # normalizing values to for creating a common heatmap
 #df.loc[:, columns] = preprocessing.normalize(df.loc[:, columns].values)
 #df.loc[:, columns] = preprocessing.MinMaxScaler().fit_transform(df.loc[:, columns].values)
@@ -113,6 +115,7 @@ corr_plot.savefig(os.path.join(path_expl, 'Correlation exploration.jpg'))
 
 #%% CLUSTERING 
 
+# TODO: Wrong grouping
 df_kmeans = gpd.GeoDataFrame(df_geo.loc[:, ['support', 'CD4Results', 'ward number']].groupby('ward number').median()).reset_index()
 ward_geo = map_SA_wards.loc[map_SA_wards.loc[:, 'MUNICNAME'] == 'Ethekwini Metropolitan Municipality', ['WARDNO', 'geometry']] 
 ward_geo['ward number'] = ward_geo['WARDNO']
@@ -122,13 +125,27 @@ df_kmeans = df_kmeans.merge(ward_geo, on = 'ward number', how = 'left')
 KMeans_SA = GSC.KMeans()
 KMeans_SA.elbow_test(df_kmeans, columns, np.arange(2, 12), path)
 df_KMeans_clusters = KMeans_SA.get_clusters(df_kmeans, columns, [3], map_KwaZulu, path)
-
 # vizualization of clusters in feature space
 plt.figure()
 sns.scatterplot(data = df_KMeans_clusters, x = 'CD4Results', y = 'support', 
                 hue = 'KMeans cluster labels_k = 4')
 
-#%%^
+# K-PROTOTYPE
+KPrototype_SA = GSC.KPrototype()
+df_KPrototype_clusters = KPrototype_SA.get_clusters(df_kmeans, columns, [3], map_KwaZulu, path, cat_list = [])
+# vizualization of clusters in feature space
+plt.figure()
+sns.scatterplot(data = df_KPrototype_clusters, x = 'CD4Results', y = 'support', 
+                hue = 'KPrototype cluster labels_k = 4')
+
+# HDBSCAN
+HDBSCAN_SA = GSC.HDBSCAN_SA()
+df_HDBSCAN_clusters = HDBSCAN_SA.get_clusters(df_geo, columns, np.arange(20,121, 20), map_KwaZulu, path)
+plt.figure()
+sns.scatterplot(data = df_HDBSCAN_clusters, x = 'CD4Results', y = 'support', 
+                hue = 'HDBSCAN cluster labels_cs = 40')
+
+#%% More visualization
 
 df = deepcopy(df_KMeans_clusters)
 # eThekwini plot
@@ -167,69 +184,6 @@ plt.axis('equal')
 plt.title('Regionalization with KMeans (K = 4)')
 plt.savefig('Regionalization_KMeans_eThekwini_k = 41 ' + '.jpg')
 
-
-
-#%%
-
-
-
-# k prototype
-KPro_model = KPro(n_clusters = 3)
-df_geo.loc[:, columns4] = preprocessing.normalize(df_geo.loc[:, columns4].values)
-KPro_fit = KPro_model.fit(X = df_geo[columns4], categorical = [1, 2, 3])
-df_KMeans_clusters['K-prototype cluster labels'] = KPro_fit.labels_
-
-# eThekwini plot
-#map_eThekwini = map_KwaZulu.loc[map_KwaZulu.CAT_B == 'ETH', :]
-df_ETH = df_KMeans_clusters.loc[df_KMeans_clusters.District == 'ETH', :]
-f, ax = plt.subplots(1, figsize=(9, 9))
-col_map = 'Pastel1'#sns.color_palette("muted", n_colors = 4)
-df_ETH.plot(column='K-prototype cluster labels', categorical=True, legend=True, 
-            linewidth=0, axes=ax, cmap = col_map)
-# boundary plot
-df_ETH.geometry.boundary.plot(color = None, edgecolor = 'k', 
-                                     linewidth = 0.7, ax = ax)
-ax.set_axis_off()
-plt.axis('equal')
-plt.title('Regionalization with K-prototype (K = ' + str(3) + ')')
-plt.savefig('Kprototype_regionalization_eThekwini.jpg')
-
-to_plot = df_KMeans_clusters.set_index('K-prototype cluster labels')
-to_plot = to_plot[columns4]
-# Display top of the table
-to_plot.head()
-to_plot = to_plot.stack()
-to_plot.head()
-to_plot = to_plot.reset_index()
-to_plot.head()
-to_plot = to_plot.rename(columns={'level_1': 'Variable', 0: 'Normalized values'})
-to_plot.head()
-# Setup the facets
-facets = sns.FacetGrid(data=to_plot, row='Variable', hue='K-prototype cluster labels', \
-                  sharey=False, sharex=False, aspect=2)
-# Build the plot as a `sns.kdeplot`
-cluster_facet_plot = facets.map(sns.kdeplot, 'Normalized values', shade=True).add_legend()
-cluster_facet_plot.savefig('Cluster properties_Kprototype.jpg')
-
-
-f, ax = plt.subplots(1, figsize=(9, 9))
-col_map = 'Pastel1'#sns.color_palette("muted", n_colors = 4)
-df_KMeans_clusters.plot(column='K-prototype cluster labels', categorical=True, legend=True, 
-        linewidth=0, axes=ax, cmap = col_map)
-# boundary plot
-map_KwaZulu.geometry.boundary.plot(color = None, edgecolor = 'k', 
-                                   linewidth = 0.7, ax = ax)
-ax.set_axis_off()
-plt.axis('equal')
-plt.title('Regionalization with K-prototype (K = 3)')
-plt.savefig('Regionalization_Kprototype_KwaZulu_N_k_3.jpg')
-
-
-
-
-# HDBSCAN
-HDBSCAN_SA = GSC.HDBSCAN_SA()
-df_HDBSCAN_clusters = HDBSCAN_SA.get_clusters(df_geo, columns, np.arange(20,121, 20), map_KwaZulu, path)
 
 
 

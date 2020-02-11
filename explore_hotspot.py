@@ -7,27 +7,14 @@ Created on Thu Jan 30 18:13:21 2020
 
 import pandas as pd
 import geopandas as gpd
-#import libpysal as lp
-import mapclassify as mc
-import esda
-from matplotlib import colors
-import matplotlib.pyplot as plt
-#import rasterio as rio
 import numpy as np
-#import contextily as ctx
-import shapely.geometry as geom
 from shapely.geometry import Point, Polygon
-import seaborn as sns
 from copy import deepcopy
 import os
-from sklearn import preprocessing
-import GeoSpatialClustering as GSC
-from kmodes.kprototypes import KPrototypes as KPro
 from GeoSpatialPlot import GeoSpatialPlot as GSPlot
 from SpatialAutocorrelation import SpatialAutocorrelation as SAC
 import Mantel
 from sklearn.metrics import pairwise_distances as pair_dist
-import skgstat
 
 if False: 
     # import file

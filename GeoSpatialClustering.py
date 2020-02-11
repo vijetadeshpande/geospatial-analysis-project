@@ -8,23 +8,20 @@ Created on Tue Jan 21 14:57:47 2020
 
 import seaborn as sns
 import pandas as pd
-import pysal as ps
 import geopandas as gpd
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn import cluster
-from sklearn.cluster import DBSCAN
+from kmodes.kprototypes import KPrototypes as KPro
 import hdbscan
 import os
-from shapely.geometry import Point, Polygon
-from sklearn import preprocessing
 from yellowbrick.cluster import KElbowVisualizer
 from copy import deepcopy
-#from geopy import geocoders  
-#from geopy.geocoders import Nominatim
+from GeoSpatialPlot import GeoSpatialPlot as GSP
 
 class KMeans:
-    def __init__(self):
+    def __init__(self, k_array = []):
+        self.k_values = k_array
         self.optimal_k = {'Distortion score': None, 'Calinski-Harabasz score': None,
                           'Silhouette score': None}
         
@@ -73,56 +70,27 @@ class KMeans:
         path_out = deepcopy(os.path.join(path_out, 'KMeans plots'))
         
         # KwaZulu Natal plot
-        #dist_list = ['Amajuba District', 'Ugu District', 'uMgungundlovu District',
-        #             'Umzinyathi District', 'Uthukela District', 'Zululand District',
-        #             'Umkhanyakude District', 'iLembe District', 'eThekwini Metropolitan',
-        #             'Sisonke District']
-        #map_KwaZulu = map_sa_districts.loc[map_sa_districts.name.isin(dist_list), :]
-        f, ax = plt.subplots(1, figsize=(9, 9))
-        col_map = 'Pastel1'#sns.color_palette("muted", n_colors = 4)
-        df.plot(column='KMeans cluster labels_k = ' + str(k_val), categorical=True, legend=True, 
-                linewidth=0, axes=ax, cmap = col_map)
-        # boundary plot
-        map_KwaZulu.geometry.boundary.plot(color = None, edgecolor = 'k', 
-                                           linewidth = 0.7, ax = ax)
-        ax.set_axis_off()
-        plt.axis('equal')
-        plt.title('Regionalization with KMeans (K = ' + str(k_val) + ')')
-        plt.savefig(os.path.join(path_out, 'Regionalization_KMeans_KwaZulu_N_' + str(k_val) + '.jpg'))
+        plot_KZL = GSP(var = 'KMeans cluster labels_k = ' + str(k_val),
+                       categorical = True,
+                       plot_title = 'Regionalization with KMeans (K = ' + str(k_val) + ')',
+                       save_path = path_out)
+        plot_KZL.plot_map(geo_df = df, optional_boundary = map_KwaZulu)
         
         # eThekwini plot
-        #map_eThekwini = map_KwaZulu.loc[map_KwaZulu.CAT_B == 'ETH', :]
-        df_ETH = deepcopy(df)#df.loc[df.District == 'ETH', :]
-        f, ax = plt.subplots(1, figsize=(9, 9))
-        col_map = 'Pastel1'#sns.color_palette("muted", n_colors = 4)
-        df_ETH.plot(column='KMeans cluster labels_k = ' + str(k_val), categorical=True, legend=True, 
-                    linewidth=0, axes=ax, cmap = col_map)
-        # boundary plot
-        df_ETH.geometry.boundary.plot(color = None, edgecolor = 'k', 
-                                             linewidth = 0.7, ax = ax)
-        ax.set_axis_off()
-        plt.axis('equal')
-        plt.title('Regionalization with KMeans (K = ' + str(k_val) + ')')
-        plt.savefig(os.path.join(path_out, 'Regionalization_KMeans_eThekwini_' + str(k_val) + '.jpg'))
-
-        # distribution within clusters
-        #ksizes = df.groupby('KMeans cluster labels').size()
-        #cluster_size_plot = ksizes.plot(kind='bar')
-        #cluster_size_plot.savefig('Cluster size plot' + str() + '.jpg')
-        #kmeans = df.groupby('kcls')[var_list].mean()
-        #kdesc = df.groupby('kcls')[var_list].describe()
+        df_ETH = df.loc[df.District == 'ETH', :]
+        plot_ETH = GSP(var = 'KMeans cluster labels_k = ' + str(k_val), 
+                        categorical = True,
+                        plot_title = 'Regionalization with KMeans (K = ' + str(k_val) + ')',
+                        save_path = path_out)
+        plot_ETH.plot_map(geo_df = df_ETH)
         
+        # TODO: plot de-normalized values here
         # Name (index) the rows after the category they belong
         to_plot = df.set_index('KMeans cluster labels_k = ' + str(k_val))
         to_plot = to_plot[var_list]
-        # Display top of the table
-        to_plot.head()
         to_plot = to_plot.stack()
-        to_plot.head()
         to_plot = to_plot.reset_index()
-        to_plot.head()
         to_plot = to_plot.rename(columns={'level_1': 'Variable', 0: 'Normalized values'})
-        to_plot.head()
         # Setup the facets
         facets = sns.FacetGrid(data=to_plot, row='Variable', hue='KMeans cluster labels_k = ' + str(k_val), \
                           sharey=False, sharex=False, aspect=2)
@@ -180,50 +148,29 @@ class HDBSCAN_SA:
         plt.savefig(os.path.join(path_out, 'HDBSCAN_Condensed_tree_cluster_size_' + str(cluster_s) + '.jpg'))
 
         # geospatial plot
-        # KwaZulu plot
-        #dist_list = ['Amajuba District', 'Ugu District', 'uMgungundlovu District',
-        #             'Umzinyathi District', 'Uthukela District', 'Zululand District',
-        #             'Umkhanyakude District', 'iLembe District', 'eThekwini Metropolitan',
-        #             'Sisonke District']
-        #map_KwaZulu = map_sa_districts.loc[map_sa_districts.name.isin(dist_list), :]
-        f, ax = plt.subplots(1, figsize=(9, 9))
-        col_map = 'Pastel1'#sns.color_palette("muted", n_colors = 5)
-        df.plot(column = 'HDBSCAN cluster labels_' + 'CS = ' + str(cluster_s), categorical=True, legend=True, 
-                    linewidth=0, axes=ax, cmap = col_map)
-        # boundary plot
-        map_KwaZulu.geometry.boundary.plot(color = None, edgecolor = 'k', 
-                                           linewidth = 0.7, ax = ax)
-        ax.set_axis_off()
-        plt.axis('equal')
-        plt.title('Regionalization with HDBSCAN (cluster size = ' + str(cluster_s) + ')')
-        plt.savefig(os.path.join(path_out, 'Regionalization_DBSCAN_KwaZulu_N_size_' + str(cluster_s) + '.jpg'))
+        # KwaZulu Natal plot
+        plot_KZL = GSP(var = 'HDBSCAN cluster labels_' + 'CS = ' + str(cluster_s),
+                       categorical = True,
+                       plot_title = 'KwaZulu-Natal regionalization with HDBSCAN (cluster size = ' + str(cluster_s) + ')',
+                       save_path = path_out)
+        plot_KZL.plot_map(geo_df = df, optional_boundary = map_KwaZulu)
         
+
         # eThekwini plot
-        #map_eThekwini = map_KwaZulu.loc[map_KwaZulu.CAT_B == 'ETH', :]
         df_ETH = df.loc[df.District == 'ETH', :]
-        f, ax = plt.subplots(1, figsize=(9, 9))
-        col_map = 'Pastel1'#sns.color_palette("muted", n_colors = 4)
-        df_ETH.plot(column='HDBSCAN cluster labels_' + 'CS = ' + str(cluster_s), categorical=True, legend=True, 
-                    linewidth=0, axes=ax, cmap = col_map)
-        # boundary plot
-        df_ETH.geometry.boundary.plot(color = None, edgecolor = 'k', 
-                                             linewidth = 0.7, ax = ax)
-        ax.set_axis_off()
-        plt.axis('equal')
-        plt.title('Regionalization with HDBSCAN (cluster size = ' + str(cluster_s) + ')')
-        plt.savefig(os.path.join(path_out, 'Regionalization_HDBSCAN_eThekwini_size_' + str(cluster_s) + '.jpg'))
+        plot_KZL = GSP(var = 'HDBSCAN cluster labels_' + 'CS = ' + str(cluster_s),
+                       categorical = True,
+                       plot_title = 'eThekwini regionalization with HDBSCAN (cluster size = ' + str(cluster_s) + ')',
+                       save_path = path_out)
+        plot_KZL.plot_map(geo_df = df_ETH)
         
+        # TODO: plot de-normalized values here
         # Name (index) the rows after the category they belong
         to_plot = df.set_index('HDBSCAN cluster labels_' + 'CS = ' + str(cluster_s))
         to_plot = to_plot[var_list]
-        # Display top of the table
-        to_plot.head()
         to_plot = to_plot.stack()
-        to_plot.head()
         to_plot = to_plot.reset_index()
-        to_plot.head()
         to_plot = to_plot.rename(columns={'level_1': 'Variable', 0: 'Normalized values'})
-        to_plot.head()
         # Setup the facets
         facets = sns.FacetGrid(data=to_plot, row='Variable', hue='HDBSCAN cluster labels_' + 'CS = ' + str(cluster_s), \
                           sharey=False, sharex=False, aspect=2)
@@ -248,5 +195,61 @@ class HDBSCAN_SA:
         
         return df
     
+class KPrototype:
     
+    def __init__(self, k_array = []):
+        self.k_values = k_array
+        self.optimal_k = {}
+        
+    def plot_clusters(self, k_val, df, var_list, map_KwaZulu, path_out):
+        
+        # change path 
+        path_out = deepcopy(os.path.join(path_out, 'KPrototype plots'))
+        if not os.path.exists(path_out):
+            os.makedirs(path_out)
+        
+        # KwaZulu Natal plot
+        plot_KZL = GSP(var = 'KPrototype cluster labels_k = ' + str(k_val),
+                       categorical = True,
+                       plot_title = 'Regionalization with KPrototype (K = ' + str(k_val) + ')',
+                       save_path = path_out)
+        plot_KZL.plot_map(geo_df = df, optional_boundary = map_KwaZulu)
+        
+        # eThekwini plot
+        df_ETH = df.loc[df.District == 'ETH', :]
+        plot_ETH = GSP(var = 'KPrototype cluster labels_k = ' + str(k_val), 
+                        categorical = True,
+                        plot_title = 'Regionalization with KPrototype (K = ' + str(k_val) + ')',
+                        save_path = path_out)
+        plot_ETH.plot_map(geo_df = df_ETH)
+        
+        # distribution plot
+        to_plot = df.set_index('KPrototype cluster labels_k = ' + str(k_val))
+        to_plot = to_plot[var_list]
+        to_plot = to_plot.stack()
+        to_plot = to_plot.reset_index()
+        to_plot = to_plot.rename(columns={'level_1': 'Variable', 0: 'Normalized values'})
+        # Setup the facets
+        facets = sns.FacetGrid(data=to_plot, row='Variable', 
+                               hue='KPrototype cluster labels_k = ' + str(k_val), \
+                               sharey=False, sharex=False, aspect=2)
+        # Build the plot as a `sns.kdeplot`
+        cluster_facet_plot = facets.map(sns.kdeplot, 'Normalized values', shade=True).add_legend()
+        cluster_facet_plot.savefig(os.path.join(path_out, 'Cluster facet plot' + str(k_val) + '.jpg'))
+    
+    def get_clusters(self, df, var_list, k_values, map_sa_districts, path_out, cat_list = []):
+        
+        for k in k_values:
+            # k prototype
+            KPro_model = KPro(n_clusters = k)
+            #df_geo.loc[:, columns4] = preprocessing.normalize(df_geo.loc[:, columns4].values)
+            KPro_fit = KPro_model.fit(X = df[var_list], categorical = cat_list)
+            df['KPrototype cluster labels'] = KPro_fit.labels_
+            
+            # plot
+            self.plot_clusters(k, df, var_list, map_sa_districts, path_out)
+            
+        return df
+        
+        
     
