@@ -19,6 +19,7 @@ from copy import deepcopy
 import os
 from sklearn import preprocessing
 import GeoSpatialClustering as GSC
+from AuxMethods import AuxMethods as Aux
 from kmodes.kprototypes import KPrototypes as KPro
 import scipy as sp
 
@@ -31,15 +32,16 @@ path = r'C:\Users\Vijeta\Documents\Projects\Sizanani\Data'
 
 dict_patient_data = {}
 dict_patient_data['location'] = pd.read_excel(os.path.join(path, 'GIS_Combine_20190529all.xlsx'))
-dict_patient_data['clinical trial'] = {"combine": pd.read_sas(os.path.join(path, 'combine_20191224.sas7bdat')),
+dict_patient_data['clinical trial'] = {"combined": pd.read_sas(os.path.join(path, 'combine_20191224.sas7bdat')),
             "baseline": pd.read_sas(os.path.join(path, 'baseline_20191224.sas7bdat'))}
 
 # location
 df_loc = dict_patient_data['location'].loc[:, ['StudyID', 'Longitude', 'Latitude']]
-columns = ['studyID', 'support', 'CD4Results', 'MHIINDX3']
+columns = ['studyID', 'support', 'CD4Results', 'MHIINDX3', 'death_9mon', 'MHIINDX3_9mon', 'MHIINDX3_diff', 'support_diff', 'death_after9']
 #columns = ['studyID', 'CD4Results', 'NGT_HSPT', 'EMHAPPY', 'EMSAD', 'EMCALM', 'EMNERVOU', 'EMWKSAD', 'support', 'total_health', 'total_barrier', 'HOWFAR', 'MHIINDX3']
-df_cd4 = dict_patient_data['clinical trial']['baseline'].loc[:, columns]
+df_cd4 = dict_patient_data['clinical trial']['combined'].loc[:, columns]
 df_cd4 = df_cd4.rename(columns = {'studyID': 'StudyID'})
+df_cd4['support_9mon'] = df_cd4['support'] + df_cd4['support_diff']
 
 # dictionaries for storing variables
 dict_df_clustering = {'HIV': {'Standardized': None, 'Original': None}, 'All': {'Standardized': None, 'Original': None}}
@@ -56,13 +58,13 @@ del map_SA_districts, map_SA_wards
 
 # right join the location df
 df_clustering = df_cd4.merge(df_loc, on = 'StudyID', how = 'left')#, lsuffix='_left', rsuffix='_right')
-df_clustering_HIV = df_clustering.dropna()
+df_clustering_HIV = df_clustering.loc[:, ['StudyID', 'support', 'CD4Results', 'MHIINDX3', 'Longitude', 'Latitude']].dropna()
 df_clustering_all = df_clustering.loc[:, ['StudyID', 'support', 'MHIINDX3', 'Longitude', 'Latitude']].dropna()
 
 #
 dict_df_clustering['HIV']['Original'] = df_clustering_HIV
 dict_df_clustering['All']['Original'] = df_clustering_all
-del df_clustering_all, df_clustering_HIV, df_clustering
+del df_clustering_all, df_clustering_HIV
 
 # normalizing values to for creating a common heatmap
 #df.loc[:, columns] = preprocessing.normalize(df.loc[:, columns].values)
@@ -78,27 +80,9 @@ dict_geo_df = {'HIV': None, 'All': None}
 df_dist_ward = dict_maps['Wards'].loc[dict_maps['Wards'].PROVINCE.isin(['KwaZulu-Natal', 'Eastern Cape']), ['CAT_B', 'geometry', 'WARDNO']]
 df_dist_ward = df_dist_ward.reset_index(drop = True)
 for i in dict_df_clustering:
-    df_geo = gpd.GeoDataFrame(dict_df_clustering[i]['Standardized'])
-    df_geo['points'] = [Point(xy) for xy in zip(df_geo.Longitude, df_geo.Latitude)]
-    df_geo = df_geo.reset_index(drop = True)
-    which_row = []
-    for row in df_geo.index:
-        #print(row)
-        paired_point = 0
-        row_idx = -1
-        for area in df_dist_ward.geometry:
-            row_idx += 1
-            if df_geo.loc[row, 'points'].within(area):
-                df_geo.loc[row, 'geometry'] = area
-                df_geo.loc[row, 'District'] = df_dist_ward.loc[row_idx, 'CAT_B']
-                df_geo.loc[row, 'ward number'] = df_dist_ward.loc[row_idx, 'WARDNO']
-                paired_point = 1
-                break
-        if paired_point == 0:
-            which_row.append(row)
-    dict_geo_df[i] = df_geo
-    del df_geo
-del df_dist_ward
+    # TODO: following line takes looong time. Figure out ways to make it efficient
+    dict_geo_df[i] = Aux().pair_point_to_polygon(dict_df_clustering[i]['Standardized'], df_dist_ward)
+
 
 #%% EXPLORE VALUES AND DISTRIBUTIONS
 # create folder
@@ -179,6 +163,53 @@ HDBSCAN_ssi_mhi = HDBSCAN_ssi_mhi.get_clusters(df_clustering_all, var, np.arange
 HDBSCAN_all = GSC.HDBSCAN()
 var = ['Social support index', 'Mental health index', 'CD4 count']
 HDBSCAN_all = HDBSCAN_all.get_clusters(df_clustering_hiv, var, np.arange(2,12, 2), dict_maps['KwaZulu-Natal districts'], path)
+
+
+
+#%% Same clustering analysis on same variables but in 9 month follow-up data
+    
+# right join the location df
+var = ['StudyID', 'support_9mon', 'MHIINDX3_9mon', 'Longitude', 'Latitude']
+df_clustering_all = df_clustering.loc[:, var].dropna()
+
+#
+x = dict_df_clustering
+dict_df_clustering = {'Baseline': x, 'Follow-up': {'HIV': {'Original': None, 'Standardized': None}, 'All': {'Original': None, 'Standardized': None}}}
+del x
+#dict_df_clustering['Follow-up']['HIV']['Original'] = df_clustering_HIV
+dict_df_clustering['Follow-up']['All']['Original'] = df_clustering_all
+del df_clustering_all#, df_clustering_HIV
+
+# normalizing values to for creating a common heatmap
+#df.loc[:, columns] = preprocessing.normalize(df.loc[:, columns].values)
+#df.loc[:, columns] = preprocessing.MinMaxScaler().fit_transform(df.loc[:, columns].values)
+#dict_df_clustering['Follow-up']['HIV']['Standardized'] = dict_df_clustering['Follow-up']['HIV']['Original']
+#dict_df_clustering['Follow-up']['HIV']['Standardized'].loc[:, ['support', 'CD4Results', 'MHIINDX3']] = preprocessing.scale(dict_df_clustering['Follow-up']['HIV']['Original'].loc[:, ['support_9mon', 'CD4Results', 'MHIINDX3_9mon']].values)
+dict_df_clustering['Follow-up']['All']['Standardized'] = dict_df_clustering['Follow-up']['All']['Original']
+dict_df_clustering['Follow-up']['All']['Standardized'].loc[:, ['support_9mon', 'MHIINDX3_9mon']] = preprocessing.scale(dict_df_clustering['Follow-up']['All']['Original'].loc[:, ['support_9mon', 'MHIINDX3_9mon']].values)
+
+    
+# geopandas object
+dict_geo_df_9 = {'HIV': None, 'All': None}
+df_dist_ward = dict_maps['Wards'].loc[dict_maps['Wards'].PROVINCE.isin(['KwaZulu-Natal', 'Eastern Cape']), ['CAT_B', 'geometry', 'WARDNO']]
+df_dist_ward = df_dist_ward.reset_index(drop = True)
+dict_geo_df_9['All'] = Aux().pair_point_to_polygon(dict_df_clustering['Follow-up']['All']['Standardized'], df_dist_ward)
+
+# grouping
+df_clustering_all = dict_geo_df_9['All'].loc[dict_geo_df_9['All'].district == 'ETH', :]
+df_clustering_all = df_clustering_all.rename(columns = {'MHIINDX3_9mon': 'Mental health index', 'support_9mon': 'Social support index'})
+# clustering for social support and mental health index
+df_clustering_all = df_grouping(df_clustering_all, var = ['Social support index', 'Mental health index', 'ward number'])
+
+# clustering
+# Kmeans clustering
+# only ssi and mhi
+KMeans_ssi_mhi = GSC.KMeans()
+var = ['Social support index', 'Mental health index']
+KMeans_ssi_mhi.elbow_test(df_clustering_all, var, np.arange(3, 10), path)
+df_KMeans_ssi_mhi = KMeans_ssi_mhi.get_clusters(df_clustering_all, var, [5], dict_maps['KwaZulu-Natal districts'], path)
+
+
 
 
 #%% More visualization
