@@ -77,7 +77,7 @@ class KMeans:
         plot_KZL.plot_map(geo_df = df, optional_boundary = map_KwaZulu)
         
         # eThekwini plot
-        df_ETH = df.loc[df.District == 'ETH', :]
+        df_ETH = df #df.loc[df.District == 'ETH', :]
         plot_ETH = GSP(var = 'KMeans cluster labels_k = ' + str(k_val), 
                         categorical = True,
                         plot_title = 'Regionalization with KMeans (K = ' + str(k_val) + ')',
@@ -118,7 +118,7 @@ class KMeans:
 
         return df
 
-class HDBSCAN_SA:
+class HDBSCAN:
     def __init__(self):
         self.optimal_cluster_size = None
         
@@ -157,7 +157,7 @@ class HDBSCAN_SA:
         
 
         # eThekwini plot
-        df_ETH = df.loc[df.District == 'ETH', :]
+        df_ETH = df #df.loc[df.District == 'ETH', :]
         plot_KZL = GSP(var = 'HDBSCAN cluster labels_' + 'CS = ' + str(cluster_s),
                        categorical = True,
                        plot_title = 'eThekwini regionalization with HDBSCAN (cluster size = ' + str(cluster_s) + ')',
