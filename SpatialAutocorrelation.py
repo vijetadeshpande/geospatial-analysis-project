@@ -113,7 +113,7 @@ class SpatialAutocorrelation:
             diamond = 2 * (sig * moran_i.q==2)
             doughnut = 4 * (sig * moran_i.q==4)
         spots = hotspot + coldspot + doughnut + diamond
-        spot_labels = [ '0 ns', '1 hot spot', '2 doughnut', '3 cold spot', '4 diamond']
+        spot_labels = [ '0 not statistically significant', '1 hot spot', '2 doughnut', '3 cold spot', '4 diamond']
         labels = [spot_labels[i] for i in spots]
         df = df.assign(spot_label=labels)
         

@@ -26,7 +26,7 @@ class GeoSpatialPlot:
         self.file_name = os.path.join(save_path, plot_title + '.jpg')
         self.color_map = cmap
         
-    def plot_map(self, geo_df, optional_boundary = pd.DataFrame()):
+    def plot_map(self, geo_df, optional_boundary = pd.DataFrame(), boundary_col = 'k'):
         
         # check type of input
         if not isinstance(geo_df, gpd.GeoDataFrame):
@@ -38,10 +38,10 @@ class GeoSpatialPlot:
                     categorical = self.variable_type, legend = True, 
                     ax = ax, linewidth = 0, edgecolor = 'white')
         if optional_boundary.empty:
-            geo_df.geometry.boundary.plot(color = None, edgecolor = 'white', 
+            geo_df.geometry.boundary.plot(color = None, edgecolor = boundary_col, 
                                                           linewidth = 0.7, ax = ax)
         else:
-            optional_boundary.geometry.boundary.plot(color = None, edgecolor = 'k', 
+            optional_boundary.geometry.boundary.plot(color = None, edgecolor = boundary_col, 
                                                           linewidth = 0.7, ax = ax)
               
         # naming and stuff
