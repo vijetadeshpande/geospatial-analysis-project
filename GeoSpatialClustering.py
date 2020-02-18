@@ -18,6 +18,9 @@ import os
 from yellowbrick.cluster import KElbowVisualizer
 from copy import deepcopy
 from GeoSpatialPlot import GeoSpatialPlot as GSP
+from GeoSpatialPlot import ClusterDistribution as CDP
+from scipy.cluster.hierarchy import dendrogram, linkage
+from sklearn.cluster import AgglomerativeClustering
 
 class KMeans:
     def __init__(self, k_array = []):
@@ -84,6 +87,13 @@ class KMeans:
                         save_path = path_out)
         plot_ETH.plot_map(geo_df = df_ETH)
         
+        # distribution of variables in each cluster
+        CDP(var_list = var_list, 
+            label_column = 'KMeans cluster labels_k = ' + str(k_val), 
+            plot_title = 'K-means cluster facet plot' + str(k_val),
+            save_path = path_out).plot_cluster_distribution(df)
+        
+        '''
         # TODO: plot de-normalized values here
         # Name (index) the rows after the category they belong
         to_plot = df.set_index('KMeans cluster labels_k = ' + str(k_val))
@@ -97,6 +107,8 @@ class KMeans:
         # Build the plot as a `sns.kdeplot`
         cluster_facet_plot = facets.map(sns.kdeplot, 'Normalized values', shade=True).add_legend()
         cluster_facet_plot.savefig(os.path.join(path_out, 'Cluster facet plot' + str(k_val) + '.jpg'))
+
+        '''
 
         
     def get_clusters(self, df, var_list, k_values, map_sa_districts, path_out):
@@ -164,6 +176,13 @@ class HDBSCAN:
                        save_path = path_out)
         plot_KZL.plot_map(geo_df = df_ETH)
         
+        # distribution of variables in each cluster
+        CDP(var_list = var_list, 
+            label_column = 'HDBSCAN cluster labels_' + 'CS = ' + str(cluster_s), 
+            plot_title = 'HDBSCAN cluster facet plot ' + 'CS = ' + str(cluster_s),
+            save_path = path_out).plot_cluster_distribution(df)
+        
+        '''
         # TODO: plot de-normalized values here
         # Name (index) the rows after the category they belong
         to_plot = df.set_index('HDBSCAN cluster labels_' + 'CS = ' + str(cluster_s))
@@ -178,6 +197,8 @@ class HDBSCAN:
         cluster_facet_plot = facets.map(sns.kdeplot, 'Normalized values', shade=True).add_legend()
         cluster_facet_plot.savefig(os.path.join(path_out, 'HDBSCAN cluster labels_' + 'CS = ' + str(cluster_s) + '.jpg'))
         
+        '''
+
     def get_clusters(self, df, var_list, cluster_size_values, map_sa, path_out):
         
         # iterate over the lowerbound values for cluster size
@@ -223,6 +244,13 @@ class KPrototype:
                         save_path = path_out)
         plot_ETH.plot_map(geo_df = df_ETH)
         
+        # distribution of variables in each cluster
+        CDP(var_list = var_list, 
+            label_column = 'KPrototype cluster labels_k = ' + str(k_val), 
+            plot_title = 'K-prototype cluster facet plot' + str(k_val),
+            save_path = path_out).plot_cluster_distribution(df)
+        
+        '''
         # distribution plot
         to_plot = df.set_index('KPrototype cluster labels_k = ' + str(k_val))
         to_plot = to_plot[var_list]
@@ -237,6 +265,9 @@ class KPrototype:
         cluster_facet_plot = facets.map(sns.kdeplot, 'Normalized values', shade=True).add_legend()
         cluster_facet_plot.savefig(os.path.join(path_out, 'Cluster facet plot' + str(k_val) + '.jpg'))
     
+        '''
+        
+
     def get_clusters(self, df, var_list, k_values, map_sa_districts, path_out, cat_list = []):
         
         for k in k_values:
@@ -251,5 +282,61 @@ class KPrototype:
             
         return df
         
+class HierarchicalAC:
+    
+    def __init__(self, var_list, linkage_type, save_path):
+        self.variable_list = var_list
+        self.linkage_type = linkage_type
+        self.save_path = save_path
+        
+    def plot_dendrogram(self, df):
+        
+        
+        link_obj = linkage(df.loc[:, self.variable_list].values, self.linkage_type)
+        plt.figure()
+        dendrogram(link_obj)
+        plt.savefig(os.path.join(self.save_path, 'Dendrogram for '+self.linkage_type+' linkage'+'.jpg'))
+        
+        return link_obj
+    
+    def plot_scatter(self, df, max_label, linkage_type, save_path):
+        
+        plt.figure()
+        col_list = ['red', 'blue', 'orange', 'black', 'purple', 'gray', 'yellow']
+        for i in range(0, max_label+1):
+            plt.scatter(df.loc[df.loc[:, 'labels for '+linkage_type+' linkage'] == i, 'Social support index'],
+                        df.loc[df.loc[:, 'labels for '+linkage_type+' linkage'] == i, 'Mental health index'],
+                        color = col_list[i])
+        plt.savefig(os.path.join(save_path, 'Scatter plot for '+linkage_type+' linkage'+'.jpg'))
+        
+        return
+        
+    
+    def get_clusters(self, df, label_column, n_cluster = 4):
+        
+        # extract
+        var_list = self.variable_list
+        linkage_type = self.linkage_type
+        
+        # dendrogram
+        _ = self.plot_dendrogram(df)
+        
+        # scatter plot
+        model = AgglomerativeClustering(n_clusters = n_cluster, linkage = linkage_type)
+        df[label_column] = model.fit(df.loc[:, var_list]).labels_
+        self.plot_scatter(df, df[label_column].max(), linkage_type, self.save_path)
+        
+        # geospatial plot
+        GSP(var = label_column, categorical = True,
+            plot_title = 'Geospatial clusters for '+linkage_type+' linkage',
+            save_path = self.save_path).plot_map(df)
+        
+        # cluster distribution
+        CDP(var_list = var_list, 
+                label_column = label_column, 
+                plot_title = 'HAC cluster facet plot for ' +linkage_type+' linkage',
+                save_path = self.save_path).plot_cluster_distribution(df)
+        
+        return df
         
     

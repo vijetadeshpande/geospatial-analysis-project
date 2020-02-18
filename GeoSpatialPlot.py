@@ -28,9 +28,8 @@ class GeoSpatialPlot:
         
     def plot_map(self, geo_df, optional_boundary = pd.DataFrame(), boundary_col = 'k'):
         
-        # check type of input
-        if not isinstance(geo_df, gpd.GeoDataFrame):
-            raise ValueError("Input data should be of type GeoDataFrame")
+        # convert to geopandas
+        geo_df = gpd.GeoDataFrame(geo_df)
         
         # plot values on map
         f, ax = plt.subplots(1, figsize=(12, 12))
@@ -49,3 +48,38 @@ class GeoSpatialPlot:
         plt.axis('equal')
         plt.title(self.plot_title)
         plt.savefig(self.file_name)
+        
+class ClusterDistribution:
+    
+    def __init__(self, var_list, label_column, plot_title, save_path, facet_title = 'Variable', x_title = 'Normalized values'):
+        self.facet_variables = var_list
+        self.plot_title = plot_title
+        self.facet_title = facet_title
+        self.x_titile = x_title
+        self.label_column = label_column
+        self.save_path = os.path.join(save_path, plot_title + '.jpg')
+    
+    def plot_cluster_distribution(self, df):
+        
+        # extract values
+        var_list = self.facet_variables
+        label_col = self.label_column
+        
+        # TODO: plot de-normalized values here
+        # Name (index) the rows after the category they belong
+        to_plot = df.set_index(label_col)
+        to_plot = to_plot[var_list]
+        to_plot = to_plot.stack()
+        to_plot = to_plot.reset_index()
+        to_plot = to_plot.rename(columns={'level_1': self.facet_title, 0: self.x_titile})
+        # Setup the facets
+        facets = sns.FacetGrid(data=to_plot, row=self.facet_title, hue=label_col, \
+                          sharey=False, sharex=False, aspect=2)
+        # Build the plot as a `sns.kdeplot`
+        cluster_facet_plot = facets.map(sns.kdeplot, self.x_titile, shade=True).add_legend()
+        cluster_facet_plot.savefig(self.save_path)
+
+        
+        
+        
+        
