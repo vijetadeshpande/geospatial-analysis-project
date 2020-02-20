@@ -61,12 +61,20 @@ if False:
 #%% CLUSTERING 
 def df_grouping(df, var, by = 'ward number'):
     ward_geo = dict_maps['Wards'].loc[dict_maps['Wards'].loc[:, 'MUNICNAME'] == 'Ethekwini Metropolitan Municipality', ['WARDNO', 'geometry']] 
-    ward_geo['ward number'] = ward_geo['WARDNO']
-    df = gpd.GeoDataFrame(df.loc[:, var].groupby(by).median()).reset_index()
+    ward_geo.columns = ['ward number', 'geometry']
+    df_out = gpd.GeoDataFrame(df.loc[:, var].groupby(by).median()).reset_index()
+    df_count = df.loc[:, var].groupby(by).count().reset_index().iloc[:, 0:2]
+    df_count.columns = ['ward number', 'count']
+    df_out = df_out.merge(df_count, on = 'ward number', how = 'left')
     #df = gpd.GeoDataFrame(df.loc[:, var].groupby(by).sum()).reset_index()
-    df = df.merge(ward_geo, on = 'ward number', how = 'left')
+    df_out = df_out.merge(ward_geo, on = 'ward number', how = 'left')
     
-    return df
+    # centroid
+    df_out['centroid'] = gpd.GeoDataFrame(df_out['geometry']).centroid
+    df_out['c lon'] = df_out.centroid.map(lambda p: p.x)
+    df_out['c lat'] = df_out.centroid.map(lambda p: p.y)
+    
+    return df_out
 
 # First we will restrict our analysis to eThekwini
 df_clustering_all = dict_geo_df['All'].loc[dict_geo_df['All'].district == 'ETH', :]
@@ -83,8 +91,9 @@ if False:
 
     # Kmeans clustering
     # only ssi and mhi
-    KMeans_ss_mhi = GSC.KMeans()
     var = ['Social support index', 'Mental health index']
+    KMeans_ss_mhi = GSC.KMeans(var, )
+    
     KMeans_ss_mhi.elbow_test(df_clustering_all, var, np.arange(3, 10), path)
     df_KMeans_ss_mhi = KMeans_ss_mhi.get_clusters(df_clustering_all, var, [4], dict_maps['KwaZulu-Natal districts'], path)
     # only cd4

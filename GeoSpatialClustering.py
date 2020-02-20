@@ -23,17 +23,22 @@ from scipy.cluster.hierarchy import dendrogram, linkage
 from sklearn.cluster import AgglomerativeClustering
 
 class KMeans:
-    def __init__(self, k_array = []):
-        self.k_values = k_array
+    def __init__(self, var, save_path):
+        self.variable_list = var
+        self.save_path = save_path
         self.optimal_k = {'Distortion score': None, 'Calinski-Harabasz score': None,
                           'Silhouette score': None}
         
-    def elbow_test(self, df, var_list, k_values, path_out):
+    def elbow_test(self, df, k_values):
+        
+        # extract
+        var_list = self.variable_list
+        path_out = self.save_path
         
         # check if a directory for elbow test exists
-        if not os.path.exists(os.path.join(path_out, 'Elbow test results')):
-            os.makedirs(os.path.join(path_out, 'Elbow test results'))
-        path_out = deepcopy(os.path.join(path_out, 'Elbow test results'))
+        path_out = os.path.join(path_out, 'Elbow test results')
+        if not os.path.exists(path_out):
+            os.makedirs(path_out)
         
         # based on distortion score
         plt.figure()
@@ -65,19 +70,23 @@ class KMeans:
         self.optimal_k = optimal_k
         
         
-    def plot_clusters(self, k_val, df, var_list, map_KwaZulu, path_out):
+    def plot_clusters(self, df, k_val, optional_boundary):
+        
+        # extract
+        var_list = self.variable_list
+        path_out = self.save_path
         
         # change path 
-        if not os.path.exists(os.path.join(path_out, 'KMeans plots')):
-            os.makedirs(os.path.join(path_out, 'KMeans plots'))
-        path_out = deepcopy(os.path.join(path_out, 'KMeans plots'))
+        path_out = os.path.join(path_out, 'KMeans plots')
+        if not os.path.exists(path_out):
+            os.makedirs(path_out)
         
         # KwaZulu Natal plot
         plot_KZL = GSP(var = 'KMeans cluster labels_k = ' + str(k_val),
                        categorical = True,
                        plot_title = 'Regionalization with KMeans (K = ' + str(k_val) + ')',
                        save_path = path_out)
-        plot_KZL.plot_map(geo_df = df, optional_boundary = map_KwaZulu)
+        plot_KZL.plot_map(geo_df = df, optional_boundary = optional_boundary)
         
         # eThekwini plot
         df_ETH = df #df.loc[df.District == 'ETH', :]
@@ -109,24 +118,20 @@ class KMeans:
         cluster_facet_plot.savefig(os.path.join(path_out, 'Cluster facet plot' + str(k_val) + '.jpg'))
 
         '''
-
         
-    def get_clusters(self, df, var_list, k_values, map_sa_districts, path_out):
+    def get_clusters(self, df, k_val, optional_boundary = None):
         
-        # check if the elbow test is done or not
-        #if self.optimal_k['Distortion score'] == None:
-        #    self.elbow_test(df, var_list, k_values, path_out)
+        # extract
+        var_list = self.variable_list
         
-        # use distortion score-knee point as the optimal k value
-        #optimal_k = self.optimal_k['Distortion score']
-        for k_val in k_values:
-            km_cluster = cluster.KMeans(n_clusters = k_val)
-            km_cluster.fit(df[var_list])
-            df['KMeans cluster labels_k = ' + str(k_val)] = km_cluster.labels_
-        
-            # plotting (first we will plot the whole KwaZulu and then we will plot
-            # only for ETH district)
-            self.plot_clusters(k_val, df, var_list, map_sa_districts, path_out)
+        # create kmeans object and fit
+        km_cluster = cluster.KMeans(n_clusters = k_val)
+        km_cluster.fit(df[var_list])
+        df['KMeans cluster labels_k = ' + str(k_val)] = km_cluster.labels_
+    
+        # plotting (first we will plot the whole KwaZulu and then we will plot
+        # only for ETH district)
+        self.plot_clusters(df, k_val, optional_boundary)
 
         return df
 
